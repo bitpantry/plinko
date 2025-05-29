@@ -4,13 +4,14 @@ const wagerInput = document.getElementById('wager');
 const balanceSpan = document.getElementById('balance');
 const resetBtn = document.getElementById('resetBtn');
 
-const rows = 8;
+const rows = 10;
 const startIndex = Math.floor(rows / 2); // center start
 const verticalSpacing = canvas.height / (rows + 2);
 const horizontalSpacing = canvas.width / (rows + 1);
 const pegRadius = 5;
 const ballRadius = 6;
-const gravity = 0.25;
+const baseGravity = 0.25;
+let currentGravity = baseGravity;
 const maxHSpeed = 3;
 
 let balance = 10000;
@@ -19,7 +20,7 @@ let dropping = false;
 let exiting = false;
 let currentWager = 0;
 const pegs = [];
-const multipliers = [10, 5, 2, 1, 0.5, 1, 2, 5, 10];
+const multipliers = [5, 3, 1, 0.75, 0.5, 0.25, 0.5, 0.75, 1, 3, 5];
 
 for (let r = 0; r < rows; r++) {
   const offset = (rows - r) / 2;
@@ -144,14 +145,23 @@ function startDrop() {
   currentWager = wager;
   balance -= wager; // take the bet
   balanceSpan.textContent = balance.toFixed(2);
-  ball = { x: laneCenter(startIndex), y: 10, vx: 0, vy: 0 };
+  // slight randomization for drop position and speed
+  const offset = (Math.random() - 0.5) * horizontalSpacing * 0.4;
+  const initialVX = (Math.random() - 0.5) * 1;
+  ball = {
+    x: laneCenter(startIndex) + offset,
+    y: 10,
+    vx: initialVX,
+    vy: 0
+  };
+  currentGravity = baseGravity * (1 + (Math.random() - 0.5) * 0.1);
   dropping = true;
   exiting = false;
 }
 
 function update() {
   if (dropping) {
-    ball.vy += gravity;
+    ball.vy += currentGravity;
     ball.x += ball.vx;
     ball.y += ball.vy;
 
