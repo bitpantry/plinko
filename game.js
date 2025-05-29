@@ -170,6 +170,9 @@ function update() {
           ball.vy -= 2 * dot * ny;
           ball.vx *= 0.6;
           ball.vy *= 0.6;
+          if (Math.abs(ball.vx) < 0.05) {
+            ball.vx += (Math.random() < 0.5 ? -1 : 1) * 0.2;
+          }
           ball.x = peg.x + nx * minDist;
           ball.y = peg.y + ny * minDist;
           playPlink();
