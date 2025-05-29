@@ -10,14 +10,25 @@ const verticalSpacing = canvas.height / (rows + 2);
 const horizontalSpacing = canvas.width / (rows + 1);
 const pegRadius = 5;
 const ballRadius = 6;
+const gravity = 0.25;
+const maxHSpeed = 3;
 
 let balance = 10000;
-let ball = { x: 0, y: 0, row: 0, index: startIndex };
+let ball = { x: 0, y: 0, vx: 0, vy: 0 };
 let dropping = false;
-let targetX = 0;
-let targetY = 0;
+let exiting = false;
 let currentWager = 0;
-const multipliers = [0, 0.5, 0.8, 1, 10, 1, 0.8, 0.5, 0];
+const pegs = [];
+const multipliers = [10, 5, 2, 1, 0.5, 1, 2, 5, 10];
+
+for (let r = 0; r < rows; r++) {
+  const offset = (rows - r) / 2;
+  for (let c = 0; c <= r; c++) {
+    const x = horizontalSpacing * (c + offset + 1);
+    const y = rowY(r);
+    pegs.push({ x, y });
+  }
+}
 
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -38,16 +49,26 @@ function playPlink() {
   playTone(600 + Math.random() * 200, 0.1, 'triangle');
 }
 
+function playSequence(notes, duration, gap, type) {
+  notes.forEach((n, i) => {
+    setTimeout(() => playTone(n, duration, type), i * (duration + gap));
+  });
+}
+
 function playWin() {
-  playTone(800, 1, 'sine');
+  playSequence([880, 988, 1047, 1175], 0.15, 0.05, 'square');
 }
 
 function playLose() {
-  playTone(200, 0.8, 'sawtooth');
+  playSequence([220, 196, 174, 164], 0.2, 0.05, 'sawtooth');
 }
 
 function slotX(i) {
   return horizontalSpacing * (i + 1);
+}
+
+function laneCenter(i) {
+  return horizontalSpacing * i + horizontalSpacing / 2;
 }
 
 function rowY(r) {
@@ -82,8 +103,17 @@ function drawBoard() {
   ctx.lineTo(canvas.width, canvas.height);
   ctx.stroke();
 
+  // lane multipliers
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center';
+  ctx.font = '12px Arial';
+  multipliers.forEach((m, i) => {
+    const x = laneCenter(i);
+    ctx.fillText(m + 'x', x, canvas.height - 5);
+  });
+
   // draw ball
-  if (dropping || ball.row > 0) {
+  if (dropping) {
     ctx.beginPath();
     ctx.arc(ball.x, ball.y, ballRadius, 0, Math.PI * 2);
     ctx.fillStyle = '#0f0';
@@ -95,7 +125,8 @@ function resetGame() {
   balance = 10000;
   balanceSpan.textContent = balance.toFixed(2);
   dropping = false;
-  ball = { x: slotX(startIndex), y: 10, row: 0, index: startIndex };
+  exiting = false;
+  ball = { x: laneCenter(startIndex), y: 10, vx: 0, vy: 0 };
   drawBoard();
 }
 
@@ -113,47 +144,71 @@ function startDrop() {
   currentWager = wager;
   balance -= wager; // take the bet
   balanceSpan.textContent = balance.toFixed(2);
-  ball = { x: slotX(startIndex), y: 10, row: 0, index: startIndex };
-  targetX = ball.x;
-  targetY = rowY(0);
+  ball = { x: laneCenter(startIndex), y: 10, vx: 0, vy: 0 };
   dropping = true;
+  exiting = false;
 }
 
 function update() {
   if (dropping) {
-    const speed = 5;
-    const dx = targetX - ball.x;
-    const dy = targetY - ball.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist < speed) {
-      ball.x = targetX;
-      ball.y = targetY;
-      playPlink();
-      ball.row++;
-      if (ball.row > rows) {
-        // landed in slot
-        const multiplier = multipliers[ball.index];
-        const payout = currentWager * multiplier;
-        balance += payout;
-        balanceSpan.textContent = balance.toFixed(2);
-        if (multiplier > 1) {
-          playWin();
-        } else if (multiplier === 1) {
+    ball.vy += gravity;
+    ball.x += ball.vx;
+    ball.y += ball.vy;
+
+    // collide with pegs
+    for (const peg of pegs) {
+      const dx = ball.x - peg.x;
+      const dy = ball.y - peg.y;
+      const dist = Math.hypot(dx, dy);
+      const minDist = ballRadius + pegRadius;
+      if (dist < minDist) {
+        const nx = dx / dist;
+        const ny = dy / dist;
+        const dot = ball.vx * nx + ball.vy * ny;
+        if (dot < 0) {
+          ball.vx -= 2 * dot * nx;
+          ball.vy -= 2 * dot * ny;
+          ball.vx *= 0.6;
+          ball.vy *= 0.6;
+          ball.x = peg.x + nx * minDist;
+          ball.y = peg.y + ny * minDist;
           playPlink();
-        } else {
-          playLose();
         }
-        dropping = false;
-      } else {
-        // choose direction
-        const dir = Math.random() < 0.5 ? -1 : 1;
-        ball.index = Math.max(0, Math.min(rows, ball.index + dir));
-        targetX = slotX(ball.index);
-        targetY = rowY(ball.row);
       }
-    } else {
-      ball.x += (dx / dist) * speed;
-      ball.y += (dy / dist) * speed;
+    }
+
+    // keep inside board
+    if (ball.x < ballRadius) {
+      ball.x = ballRadius;
+      ball.vx = Math.abs(ball.vx) * 0.5;
+    } else if (ball.x > canvas.width - ballRadius) {
+      ball.x = canvas.width - ballRadius;
+      ball.vx = -Math.abs(ball.vx) * 0.5;
+    }
+    ball.vx = Math.max(-maxHSpeed, Math.min(maxHSpeed, ball.vx));
+
+    // check bottom
+    if (ball.y + ballRadius >= canvas.height) {
+      ball.y = canvas.height - ballRadius;
+      const lane = Math.max(0, Math.min(rows, Math.floor(ball.x / horizontalSpacing)));
+      const multiplier = multipliers[lane];
+      const payout = currentWager * multiplier;
+      balance += payout;
+      balanceSpan.textContent = balance.toFixed(2);
+      if (multiplier >= 1) {
+        playWin();
+      } else {
+        playLose();
+      }
+      dropping = false;
+      exiting = true;
+      ball.vy = 5;
+    }
+  }
+  if (exiting) {
+    ball.y += ball.vy;
+    if (ball.y - ballRadius > canvas.height) {
+      exiting = false;
     }
   }
   drawBoard();
