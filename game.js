@@ -7,14 +7,15 @@ const resetBtn = document.getElementById('resetBtn');
 const rows = 10;
 const startIndex = Math.floor(rows / 2); // center start
 const verticalSpacing = canvas.height / (rows + 2);
-const horizontalSpacing = canvas.width / (rows + 1);
+const laneSpacing = canvas.width / (rows + 1);
+const pegSpacing = laneSpacing * 1.2; // slightly wider peg layout
 const pegRadius = 5;
 const ballRadius = 6;
 const baseGravity = 0.25;
 let currentGravity = baseGravity;
 const maxHSpeed = 3;
 // Heavy steel ball and dampened pins means very little bounce
-const bounceDamping = 0.2;
+const bounceDamping = 0.5; // slightly more bounce off the pins
 
 let balance = 10000;
 let ball = { x: 0, y: 0, vx: 0, vy: 0 };
@@ -25,9 +26,10 @@ const pegs = [];
 const multipliers = [5, 3, 1, 0.75, 0.5, 0.25, 0.5, 0.75, 1, 3, 5];
 
 for (let r = 0; r < rows; r++) {
-  const offset = (rows - r) / 2;
+  const rowWidth = r * pegSpacing;
+  const startX = (canvas.width - rowWidth) / 2;
   for (let c = 0; c <= r; c++) {
-    const x = horizontalSpacing * (c + offset + 1);
+    const x = startX + c * pegSpacing;
     const y = rowY(r);
     pegs.push({ x, y });
   }
@@ -67,11 +69,11 @@ function playLose() {
 }
 
 function slotX(i) {
-  return horizontalSpacing * (i + 1);
+  return laneSpacing * (i + 1);
 }
 
 function laneCenter(i) {
-  return horizontalSpacing * i + horizontalSpacing / 2;
+  return laneSpacing * i + laneSpacing / 2;
 }
 
 function rowY(r) {
@@ -81,17 +83,12 @@ function rowY(r) {
 function drawBoard() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   // draw pegs
-  for (let r = 0; r < rows; r++) {
-    const offset = (rows - r) / 2;
-    for (let c = 0; c <= r; c++) {
-      const x = horizontalSpacing * (c + offset + 1);
-      const y = rowY(r);
-      ctx.beginPath();
-      ctx.arc(x, y, pegRadius, 0, Math.PI * 2);
-      ctx.fillStyle = '#fff';
-      ctx.fill();
-    }
-  }
+  pegs.forEach((peg) => {
+    ctx.beginPath();
+    ctx.arc(peg.x, peg.y, pegRadius, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff';
+    ctx.fill();
+  });
   // draw slot lines
   ctx.strokeStyle = '#555';
   for (let i = 0; i <= rows; i++) {
@@ -148,7 +145,7 @@ function startDrop() {
   balance -= wager; // take the bet
   balanceSpan.textContent = balance.toFixed(2);
   // slight randomization for drop position and speed
-  const offset = (Math.random() - 0.5) * horizontalSpacing * 0.4;
+  const offset = (Math.random() - 0.5) * laneSpacing * 0.4;
   const initialVX = (Math.random() - 0.5) * 1;
   ball = {
     x: laneCenter(startIndex) + offset,
@@ -206,7 +203,7 @@ function update() {
     // check bottom
     if (ball.y + ballRadius >= canvas.height) {
       ball.y = canvas.height - ballRadius;
-      const lane = Math.max(0, Math.min(rows, Math.floor(ball.x / horizontalSpacing)));
+      const lane = Math.max(0, Math.min(rows, Math.floor(ball.x / laneSpacing)));
       const multiplier = multipliers[lane];
       const payout = currentWager * multiplier;
       balance += payout;
