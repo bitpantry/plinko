@@ -13,6 +13,8 @@ const ballRadius = 6;
 const baseGravity = 0.25;
 let currentGravity = baseGravity;
 const maxHSpeed = 3;
+// Heavy steel ball and dampened pins means very little bounce
+const bounceDamping = 0.2;
 
 let balance = 10000;
 let ball = { x: 0, y: 0, vx: 0, vy: 0 };
@@ -178,8 +180,9 @@ function update() {
         if (dot < 0) {
           ball.vx -= 2 * dot * nx;
           ball.vy -= 2 * dot * ny;
-          ball.vx *= 0.6;
-          ball.vy *= 0.6;
+          // dampen the bounce significantly
+          ball.vx *= bounceDamping;
+          ball.vy *= bounceDamping;
           if (Math.abs(ball.vx) < 0.05) {
             ball.vx += (Math.random() < 0.5 ? -1 : 1) * 0.2;
           }
