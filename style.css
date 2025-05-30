@@ -11,11 +11,33 @@ body {
   margin-top: 10px;
 }
 
+#boardContainer {
+  position: relative;
+  display: inline-block;
+  margin: 20px auto;
+}
+
 #board {
   background: #111;
   display: block;
-  margin: 20px auto;
   border: 2px solid #555;
+}
+
+#confetti {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+#boardContainer.win {
+  animation: blink 0.3s steps(1) infinite;
+}
+
+@keyframes blink {
+  0% { box-shadow: 0 0 20px 5px #f00; }
+  50% { box-shadow: 0 0 20px 5px #ff0; }
+  100% { box-shadow: 0 0 20px 5px #f00; }
 }
 
 input[type="number"] {
