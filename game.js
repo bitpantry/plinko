@@ -3,8 +3,12 @@ const ctx = canvas.getContext('2d');
 const wagerInput = document.getElementById('wager');
 const balanceSpan = document.getElementById('balance');
 const resetBtn = document.getElementById('resetBtn');
+const boardContainer = document.getElementById('boardContainer');
+const confettiCanvas = document.getElementById('confetti');
+const confettiCtx = confettiCanvas.getContext('2d');
 
-const rows = 10;
+// fewer rows to reduce peg density
+const rows = 8;
 const startIndex = Math.floor(rows / 2); // center start
 const verticalSpacing = canvas.height / (rows + 2);
 const laneSpacing = canvas.width / (rows + 1);
@@ -22,8 +26,10 @@ let ball = { x: 0, y: 0, vx: 0, vy: 0 };
 let dropping = false;
 let exiting = false;
 let currentWager = 0;
+const confettiPieces = [];
+let celebrating = false;
 const pegs = [];
-const multipliers = [5, 3, 1, 0.75, 0.5, 0.25, 0.5, 0.75, 1, 3, 5];
+const multipliers = [5, 3, 1.5, 1, 0.5, 1, 1.5, 3, 5];
 
 for (let r = 0; r < rows; r++) {
   const rowWidth = r * pegSpacing;
@@ -66,6 +72,45 @@ function playWin() {
 
 function playLose() {
   playSequence([220, 196, 174, 164], 0.2, 0.05, 'sawtooth');
+}
+
+function startCelebration() {
+  celebrating = true;
+  boardContainer.classList.add('win');
+  confettiPieces.length = 0;
+  for (let i = 0; i < 100; i++) {
+    confettiPieces.push({
+      x: Math.random() * confettiCanvas.width,
+      y: -Math.random() * 50,
+      vx: (Math.random() - 0.5) * 2,
+      vy: Math.random() * 3 + 2,
+      size: Math.random() * 4 + 2,
+      color: `hsl(${Math.random() * 360},100%,50%)`,
+      life: 120
+    });
+  }
+}
+
+function updateConfetti() {
+  if (!celebrating) return;
+  confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+  confettiPieces.forEach((p) => {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.05;
+    p.life--;
+    confettiCtx.fillStyle = p.color;
+    confettiCtx.fillRect(p.x, p.y, p.size, p.size);
+  });
+  for (let i = confettiPieces.length - 1; i >= 0; i--) {
+    if (confettiPieces[i].life <= 0 || confettiPieces[i].y > confettiCanvas.height) {
+      confettiPieces.splice(i, 1);
+    }
+  }
+  if (confettiPieces.length === 0) {
+    celebrating = false;
+    boardContainer.classList.remove('win');
+  }
 }
 
 function slotX(i) {
@@ -126,6 +171,9 @@ function resetGame() {
   balanceSpan.textContent = balance.toFixed(2);
   dropping = false;
   exiting = false;
+  celebrating = false;
+  confettiPieces.length = 0;
+  boardContainer.classList.remove('win');
   ball = { x: laneCenter(startIndex), y: 10, vx: 0, vy: 0 };
   drawBoard();
 }
@@ -210,6 +258,7 @@ function update() {
       balanceSpan.textContent = balance.toFixed(2);
       if (multiplier >= 1) {
         playWin();
+        startCelebration();
       } else {
         playLose();
       }
@@ -225,6 +274,7 @@ function update() {
     }
   }
   drawBoard();
+  updateConfetti();
   requestAnimationFrame(update);
 }
 
