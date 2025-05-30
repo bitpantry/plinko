@@ -14,7 +14,7 @@ const verticalSpacing = canvas.height / (rows + 2);
 const laneSpacing = canvas.width / (rows + 1);
 const pegSpacing = laneSpacing * 1.2; // slightly wider peg layout
 const pegRadius = 5;
-const ballRadius = 6;
+const ballRadius = 12; // doubled ball size
 const baseGravity = 0.25;
 let currentGravity = baseGravity;
 const maxHSpeed = 3;
@@ -27,6 +27,7 @@ let dropping = false;
 let exiting = false;
 let currentWager = 0;
 const confettiPieces = [];
+const fireworks = [];
 let celebrating = false;
 const pegs = [];
 const multipliers = [5, 3, 1.5, 1, 0.5, 1, 1.5, 3, 5];
@@ -74,10 +75,15 @@ function playLose() {
   playSequence([220, 196, 174, 164], 0.2, 0.05, 'sawtooth');
 }
 
+function createFirework(x, y) {
+  return { x, y, vx: 0, vy: -5, life: 40, exploded: false };
+}
+
 function startCelebration() {
   celebrating = true;
   boardContainer.classList.add('win');
   confettiPieces.length = 0;
+  fireworks.length = 0;
   for (let i = 0; i < 100; i++) {
     confettiPieces.push({
       x: Math.random() * confettiCanvas.width,
@@ -89,6 +95,8 @@ function startCelebration() {
       life: 120
     });
   }
+  fireworks.push(createFirework(30, confettiCanvas.height - 10));
+  fireworks.push(createFirework(confettiCanvas.width - 30, confettiCanvas.height - 10));
 }
 
 function updateConfetti() {
@@ -105,6 +113,37 @@ function updateConfetti() {
   for (let i = confettiPieces.length - 1; i >= 0; i--) {
     if (confettiPieces[i].life <= 0 || confettiPieces[i].y > confettiCanvas.height) {
       confettiPieces.splice(i, 1);
+    }
+  }
+  fireworks.forEach((f) => {
+    if (!f.exploded) {
+      f.x += f.vx;
+      f.y += f.vy;
+      f.vy += 0.05;
+      f.life--;
+      confettiCtx.fillStyle = '#fff';
+      confettiCtx.fillRect(f.x, f.y, 2, 4);
+      if (f.life <= 0) {
+        f.exploded = true;
+        for (let i = 0; i < 30; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = Math.random() * 3 + 2;
+          confettiPieces.push({
+            x: f.x,
+            y: f.y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            size: Math.random() * 3 + 2,
+            color: `hsl(${Math.random() * 360},100%,50%)`,
+            life: 80
+          });
+        }
+      }
+    }
+  });
+  for (let i = fireworks.length - 1; i >= 0; i--) {
+    if (fireworks[i].exploded) {
+      fireworks.splice(i, 1);
     }
   }
   if (confettiPieces.length === 0) {
